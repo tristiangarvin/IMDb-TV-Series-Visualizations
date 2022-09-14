@@ -12,21 +12,20 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],  # bootstrap t
 )
 
 df = pd.read_csv('imdb_top_250_series_episode_ratings.csv')
+
+other = pd.read_excel('series_overall_ratings.xlsx')
+
+df = df.join(other.set_index('Title'), on='Title', rsuffix='_Overall')
+
+df.to_csv('data.csv')
+
+
 df['Episodes'] = df.groupby(['Title']).cumcount() + 1
-
-df['Average'] = df.groupby('Title')['Rating'].transform('mean')
-
-dfsh = df.drop_duplicates(subset=['Title'])
-
-dfsh = dfsh.sort_values(by='Average', ascending=False)
-
-dfsh
 
 dropdown_show = dcc.Dropdown(
     id="dropdown-show",
     options=[{"label": show, "value": show}
-             for show in dfsh.Title.unique()],
-             #for show in sorted(df.Title.unique())],
+             for show in df.Title.unique()],
     multi=False,
     value='Breaking Bad',
     clearable=False,
@@ -37,15 +36,35 @@ app.layout = dbc.Container([
         dbc.Col([
             html.H1('IMDB Ratings',),
             dropdown_show,
-            dcc.Graph(id='ratings-chart', figure={},  className="pt-5", responsive=True),
+            dcc.Graph(id='ratings-chart', figure={},  className="pt-5", responsive=True, style={'min-height': '500px'}),
         ], lg=12)
+    ],),
+    dbc.Row([
+        dbc.Col([
+            html.H2(id='show-title'),
+            html.P(id='avg-rating'),
+        ], lg=6, ),
+        dbc.Col([
+
+        ],),
     ],),
 ],)
 
-@app.callback(Output('ratings-chart','figure'),
-              Input('dropdown-show', 'value'))
+@app.callback(
+    [
+            Output('ratings-chart','figure'),
+            Output('show-title','children'),
+    ],
+    [
+            Input('dropdown-show', 'value'),
+    ]
+    )
 def update_layout(show):
     df2 = df[df['Title'] == show]
+    show_title = df2['Title'].iloc[0] # first item in PD series
+    show_rating = df2['Rating_Overall'].iloc[0] # first item in PD series
+    selected_show = f'{show_title} {show_rating}'
+
     fig = px.line(df2, x='Episodes', y='Rating', markers=True, line_shape='spline', title="IMDb Rating by Episode",)
     fig.update_yaxes(range=[0,10], dtick=1, showgrid=False, zeroline=True, ticksuffix = "  ")
     fig.update_xaxes(showgrid=False, zeroline=True, rangemode="tozero")
@@ -59,7 +78,7 @@ def update_layout(show):
     lowscore = low['Rating'].iloc[0].item()
 
     fig.add_annotation(text='Highest Rated Episode: ' + str(highscore), y=high.iloc[-1]['Rating'], x=high.iloc[-1]['Episodes'], arrowcolor='white')
-    fig.add_annotation(text='Lowest Rated Episode: ' + str(lowscore), y=low.iloc[0]['Rating'], x=low.iloc[0]['Episodes'], arrowcolor='white', font=dict(color="#E85669"), ay=30)
+    fig.add_annotation(text='Lowest Rated Episode: ' + str(lowscore), y=low.iloc[0]['Rating'], x=low.iloc[0]['Episodes'], arrowcolor='white', font=dict(color="#E85669"), ay=30, ax=5)
 
     fig.update_layout(
             {
@@ -74,7 +93,7 @@ def update_layout(show):
         )
 
 
-    return fig
+    return fig, selected_show
 
 server = app.server
 
