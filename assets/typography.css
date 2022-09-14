@@ -1,7 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Nabla&display=swap');
+
 h1 {
-    color: rgb(254, 229, 0);
+    color: #F5C518;
+    font-family: 'Nabla', cursive;
 }
 
 body {
-    background-color: #222222;
+    background-color: #1F1F1F;
 }
