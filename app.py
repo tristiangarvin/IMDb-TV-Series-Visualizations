@@ -13,12 +13,11 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],  # bootstrap t
 
 df = pd.read_csv('imdb_top_250_series_episode_ratings.csv')
 
-other = pd.read_excel('series_overall_ratings.xlsx')
+df_show = pd.read_csv('show_overall.csv')
 
-df = df.join(other.set_index('Title'), on='Title', rsuffix='_Overall')
+#df_show['Total_Rating'] = df_show.agg('{0[Title]}: {0[Rating_O]}'.format, axis=1)
 
-df.to_csv('data.csv')
-
+df = df.join(df_show.set_index('Title'), on='Title')
 
 df['Episodes'] = df.groupby(['Title']).cumcount() + 1
 
@@ -31,10 +30,11 @@ dropdown_show = dcc.Dropdown(
     clearable=False,
 )
 
+
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
-            html.H1('IMDB Ratings',),
+            html.H1('Top 250 TV Series Ratings on IMDB', className='pt-5 pb-2'),
             dropdown_show,
             dcc.Graph(id='ratings-chart', figure={},  className="pt-5", responsive=True, style={'min-height': '500px'}),
         ], lg=12)
@@ -43,6 +43,7 @@ app.layout = dbc.Container([
         dbc.Col([
             html.H2(id='show-title'),
             html.P(id='avg-rating'),
+            html.P(id='show-difference'),
         ], lg=6, ),
         dbc.Col([
 
@@ -54,6 +55,7 @@ app.layout = dbc.Container([
     [
             Output('ratings-chart','figure'),
             Output('show-title','children'),
+            Output('show-difference','children'),
     ],
     [
             Input('dropdown-show', 'value'),
@@ -63,7 +65,7 @@ def update_layout(show):
     df2 = df[df['Title'] == show]
     show_title = df2['Title'].iloc[0] # first item in PD series
     show_rating = df2['Rating_Overall'].iloc[0] # first item in PD series
-    selected_show = f'{show_title} {show_rating}'
+    
 
     fig = px.line(df2, x='Episodes', y='Rating', markers=True, line_shape='spline', title="IMDb Rating by Episode",)
     fig.update_yaxes(range=[0,10], dtick=1, showgrid=False, zeroline=True, ticksuffix = "  ")
@@ -77,8 +79,14 @@ def update_layout(show):
     highscore = high['Rating'].iloc[0].item()
     lowscore = low['Rating'].iloc[0].item()
 
-    fig.add_annotation(text='Highest Rated Episode: ' + str(highscore), y=high.iloc[-1]['Rating'], x=high.iloc[-1]['Episodes'], arrowcolor='white')
-    fig.add_annotation(text='Lowest Rated Episode: ' + str(lowscore), y=low.iloc[0]['Rating'], x=low.iloc[0]['Episodes'], arrowcolor='white', font=dict(color="#E85669"), ay=30, ax=5)
+    difference = highscore - lowscore
+    difference = round(difference, 1)
+
+    selected_show = f'{show_title}: {show_rating}'
+    rating_difference = f'Difference between highest and lowest rated episodes: {difference}'
+
+    fig.add_annotation(text='Highest Rated Ep: ' + str(highscore), y=high.iloc[-1]['Rating'], x=high.iloc[-1]['Episodes'], arrowcolor='white')
+    fig.add_annotation(text='Lowest Rated Ep: ' + str(lowscore), y=low.iloc[0]['Rating'], x=low.iloc[0]['Episodes'], arrowcolor='white', font=dict(color="#E85669"), ay=30, ax=5)
 
     fig.update_layout(
             {
@@ -93,7 +101,7 @@ def update_layout(show):
         )
 
 
-    return fig, selected_show
+    return fig, selected_show, rating_difference
 
 server = app.server
 
